@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pl2_kasir/dashboard.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pl2_kasir/login_page.dart';
 
@@ -24,7 +25,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: false,
       ),
       debugShowCheckedModeBanner: false,
-      home: const LoginPage(),
+      home: const Dashboard(),
     );
   }
 }
