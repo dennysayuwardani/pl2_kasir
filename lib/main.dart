@@ -4,8 +4,9 @@ import 'package:pl2_kasir/profile.dart';
 import 'package:pl2_kasir/penjualan.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pl2_kasir/login_page.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pl2_kasir/pelanggan.dart';
+import 'package:pl2_kasir/riwayat.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   await Supabase.initialize(
@@ -19,7 +20,6 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -29,8 +29,29 @@ class MyApp extends StatelessWidget {
         useMaterial3: false,
       ),
       debugShowCheckedModeBanner: false,
-      home: const LoginPage(),
+      home: FutureBuilder<String?>(
+        future: _getRole(), // Ambil role dari SharedPreferences
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator()); // Loading state
+          }
+
+          if (snapshot.hasData && snapshot.data != null) {
+            // Jika role sudah tersimpan, tampilkan MainPage
+            return const MainPage();
+          } else {
+            // Jika belum login, tampilkan halaman login
+            return const LoginPage();
+          }
+        },
+      ),
     );
+  }
+
+  // Mengambil role yang disimpan di SharedPreferences
+  Future<String?> _getRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('role'); // Ambil role yang disimpan
   }
 }
 
@@ -43,11 +64,33 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0; // Indeks awal untuk navigasi bawah
+  String? role; // Menyimpan role yang didapat dari SharedPreferences
 
-  final List<Widget> _pages = [
+  @override
+  void initState() {
+    super.initState();
+    _loadRole(); // Load role saat MainPage dibuka
+  }
+
+  // Load role dari SharedPreferences
+  Future<void> _loadRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      role = prefs.getString('role');
+    });
+  }
+
+  final List<Widget> _adminPages = [
     const Dashboard(), // Halaman Dashboard
     const PenjualanScreen(), // Halaman Transaksi
     const PelangganScreen(), // Halaman Pelanggan
+    const RiwayatPembelianPage(), // Halaman Riwayat
+    const ProfilePage(), // Halaman Profil
+  ];
+
+  final List<Widget> _petugasPages = [
+    const PenjualanScreen(), // Halaman Transaksi
+    const RiwayatPembelianPage(), // Halaman Riwayat
     const ProfilePage(), // Halaman Profil
   ];
 
@@ -59,10 +102,12 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final pages = role == 'admin' ? _adminPages : _petugasPages;
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex, // Tampilkan halaman berdasarkan indeks
-        children: _pages,
+        children: pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -73,29 +118,48 @@ class _MainPageState extends State<MainPage> {
             _currentIndex = index; // Ubah indeks saat tombol diklik
           });
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_bag_outlined),
-            label: 'Produk',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Penjualan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_reaction_outlined),
-            label: 'Pelanggan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_2_outlined),
-            label: 'Profil',
-          ),
-        ],
-        selectedLabelStyle: GoogleFonts.poppins(
+        items: role == 'admin'
+            ? const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  label: 'Produk',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.receipt_long),
+                  label: 'Penjualan',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.add_reaction_outlined),
+                  label: 'Pelanggan',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history_outlined),
+                  label: 'Riwayat',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_2_outlined),
+                  label: 'Profil',
+                ),
+              ]
+            : const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.receipt_long),
+                  label: 'Penjualan',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history_outlined),
+                  label: 'Riwayat',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_2_outlined),
+                  label: 'Profil',
+                ),
+              ],
+        selectedLabelStyle: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
-        unselectedLabelStyle: GoogleFonts.poppins(
+        unselectedLabelStyle: const TextStyle(
           fontSize: 12,
         ),
       ),

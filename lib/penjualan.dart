@@ -5,21 +5,15 @@ class PenjualanScreen extends StatefulWidget {
   const PenjualanScreen({Key? key}) : super(key: key);
 
   @override
-  State<PenjualanScreen> createState() => _PenjualanScreenState();
+  _PenjualanScreenState createState() => _PenjualanScreenState();
 }
 
 class _PenjualanScreenState extends State<PenjualanScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
-
-  // Dropdown values
   int? selectedPelangganId;
-  int? selectedProdukId;
   List<Map<String, dynamic>> pelangganList = [];
   List<Map<String, dynamic>> produkList = [];
   List<Map<String, dynamic>> produkTerpilih = [];
-  List<Map<String, dynamic>> historyPenjualan = [];
-
-  // Total harga
   double totalHarga = 0;
 
   @override
@@ -30,118 +24,89 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
   }
 
   Future<void> _fetchPelanggan() async {
-    try {
-      final response = await supabase.from('pelanggan').select();
+    final response = await supabase.from('pelanggan').select();
+    if (mounted) {
       setState(() {
-        pelangganList = List<Map<String, dynamic>>.from(response);
-      });
-    } catch (e) {
-      _showError('Gagal mengambil data pelanggan: $e');
+      pelangganList = List<Map<String, dynamic>>.from(response);
+    });
     }
   }
 
   Future<void> _fetchProduk() async {
-    try {
-      final response = await supabase.from('produk').select();
+    final response = await supabase.from('produk').select();
+    if (mounted) {
       setState(() {
-        produkList = List<Map<String, dynamic>>.from(response);
-      });
-    } catch (e) {
-      _showError('Gagal mengambil data produk: $e');
+      produkList = List<Map<String, dynamic>>.from(response);
+    });
     }
   }
 
   void _addProdukToCart(Map<String, dynamic> produk) {
-    final int jumlah = 1; // Default jumlah
-    final double subtotal = jumlah * (produk['harga'] as double);
+    final existingProduk = produkTerpilih.firstWhere(
+        (item) => item['produk_id'] == produk['produk_id'], orElse: () => {});
     setState(() {
-      produkTerpilih.add({
-        ...produk,
-        'jumlah_produk': jumlah,
-        'subtotal': subtotal,
-      });
-      totalHarga += subtotal;
+      if (existingProduk.isNotEmpty) {
+        existingProduk['jumlah_produk']++;
+        existingProduk['subtotal'] =
+            existingProduk['jumlah_produk'] * produk['harga'];
+      } else {
+        produkTerpilih.add({
+          ...produk,
+          'jumlah_produk': 1,
+          'subtotal': produk['harga'],
+        });
+      }
+      totalHarga += produk['harga'];
     });
   }
 
-  Future<List<Map<String, dynamic>>> _fetchPilihPelanggan() async {
-    final response = await supabase
-        .from('pelanggan')
-        .select('pelanggan_id, nama_pelanggan')
-        .eq('kartu_member', true);
-    return List<Map<String, dynamic>>.from(response);
-  }
-
-  Future<void> _savePenjualan() async {
-    if (selectedPelangganId == null || produkTerpilih.isEmpty) {
-      _showError('Pilih pelanggan dan minimal satu produk.');
-      return;
-    }
-
-    try {
-      // Insert penjualan
-      final penjualanResponse = await supabase.from('penjualan').insert({
-        'tanggal_penjualan': DateTime.now().toIso8601String(),
-        'total_harga': totalHarga,
-        'pelanggan_id': selectedPelangganId,
-      }).select().single();
-
-      final penjualanId = penjualanResponse['penjualan_id'];
-
-      // Insert detail penjualan
-      for (var produk in produkTerpilih) {
-        await supabase.from('detail_penjualan').insert({
-          'penjualan_id': penjualanId,
-          'produk_id': produk['produk_id'],
-          'jumlah_produk': produk['jumlah_produk'],
-          'subtotal': produk['subtotal'],
-        });
-
-        // Update stok produk
-        final int newStok = produk['stok'] - produk['jumlah_produk'];
-        await supabase.from('produk').update({'stok': newStok}).eq('produk_id', produk['produk_id']);
+  void _removeProdukFromCart(Map<String, dynamic> produk) {
+    final existingProduk = produkTerpilih.firstWhere(
+        (item) => item['produk_id'] == produk['produk_id'], orElse: () => {});
+    if (existingProduk.isNotEmpty) {
+      if (existingProduk['jumlah_produk'] > 1) {
+        existingProduk['jumlah_produk']--;
+        existingProduk['subtotal'] =
+            existingProduk['jumlah_produk'] * produk['harga'];
+        totalHarga -= produk['harga'];
+      } else {
+        produkTerpilih.remove(existingProduk);
+        totalHarga -= produk['harga'];
       }
-
-      // Reset state
-      setState(() {
-        historyPenjualan.add({
-          'penjualan_id': penjualanId,
-          'tanggal_penjualan': DateTime.now().toIso8601String(),
-          'total_harga': totalHarga,
-          'pelanggan': selectedPelangganId != null ? produkTerpilih : 'Non-member',
-        });
-        selectedPelangganId = null;
-        produkTerpilih.clear();
-        totalHarga = 0;
-      });
-
-      _showSuccess('Penjualan berhasil disimpan.');
-    } catch (e) {
-      _showError('Gagal menyimpan penjualan: $e');
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _goToCheckout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CheckoutScreen(
+          pelangganId: selectedPelangganId,
+          produkTerpilih: produkTerpilih,
+          totalHarga: totalHarga,
+        ),
+      ),
+    );
   }
 
-  void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message, style: const TextStyle(color: Colors.green))));
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: color,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
-          children: [
-            Text('Penjualan',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                )),
-          ],
+        title: const Text(
+          'Penjualan',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -150,37 +115,27 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Dropdown pelanggan
-FutureBuilder<List<Map<String, dynamic>>>(
-            future: _fetchPilihPelanggan(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return CircularProgressIndicator();
-              }
-              final pelangganList = snapshot.data!;
-              return DropdownButton<int?>(
-                hint: Text('Pilih Pelanggan (Opsional)'),
-                value: selectedPelangganId,
-                onChanged: (value) {
-                  setState(() {
-                    selectedPelangganId = value;
-                  });
-                },
-                items: pelangganList.map((pelanggan) {
-                  return DropdownMenuItem<int?>(
-                    value: pelanggan['pelanggan_id'],
-                    child: Text(pelanggan['nama_pelanggan']),
-                  );
-                }).toList(),
-              );
-            },
-          ),            const SizedBox(height: 16),
-
-            // Dropdown produk
+            DropdownButtonFormField<int?>(
+              hint: const Text('Pilih Pelanggan (Opsional)'),
+              value: selectedPelangganId,
+              onChanged: (value) {
+                setState(() {
+                  selectedPelangganId = value;
+                });
+              },
+              items: pelangganList.map((pelanggan) {
+                return DropdownMenuItem<int?>(
+                  value: pelanggan['pelanggan_id'],
+                  child: Text(pelanggan['nama_pelanggan']),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<int>(
               hint: const Text('Pilih Produk'),
               onChanged: (value) {
-                final produk = produkList.firstWhere((p) => p['produk_id'] == value);
+                final produk =
+                    produkList.firstWhere((p) => p['produk_id'] == value);
                 _addProdukToCart(produk);
               },
               items: produkList.map((produk) {
@@ -191,8 +146,128 @@ FutureBuilder<List<Map<String, dynamic>>>(
               }).toList(),
             ),
             const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: produkTerpilih.length,
+                itemBuilder: (context, index) {
+                  final produk = produkTerpilih[index];
+                  return ListTile(
+                    title: Text(produk['nama_produk']),
+                    subtitle: Text('Subtotal: Rp ${produk['subtotal']}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove, color: Colors.red),
+                          onPressed: () => _removeProdukFromCart(produk),
+                        ),
+                        Text('${produk['jumlah_produk']}'),
+                        IconButton(
+                          icon: const Icon(Icons.add, color: Colors.green),
+                          onPressed: () => _addProdukToCart(produk),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            Text('Total Harga: Rp $totalHarga',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: produkTerpilih.isEmpty ? null : _goToCheckout,
+              child: const Text('Checkout'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            // Produk terpilih
+class CheckoutScreen extends StatelessWidget {
+  final int? pelangganId;
+  final List<Map<String, dynamic>> produkTerpilih;
+  final double totalHarga;
+
+  const CheckoutScreen({
+    Key? key,
+    required this.pelangganId,
+    required this.produkTerpilih,
+    required this.totalHarga,
+  }) : super(key: key);
+
+  Future<void> _konfirmasiPembelian(BuildContext context) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Insert ke tabel penjualan
+      final penjualanResponse = await supabase
+          .from('penjualan')
+          .insert({
+            'tanggal_penjualan': DateTime.now().toIso8601String(),
+            'total_harga': totalHarga,
+            'pelanggan_id': pelangganId,
+          })
+          .select()
+          .single();
+
+      final penjualanId = penjualanResponse['penjualan_id'];
+
+      // Insert ke tabel detail_penjualan
+      for (var produk in produkTerpilih) {
+        await supabase.from('detail_penjualan').insert({
+          'penjualan_id': penjualanId,
+          'produk_id': produk['produk_id'],
+          'jumlah_produk': produk['jumlah_produk'],
+          'subtotal': produk['subtotal'],
+        });
+
+        // Update stok produk
+        final int newStok = produk['stok'] - produk['jumlah_produk'];
+        await supabase
+            .from('produk')
+            .update({'stok': newStok}).eq('produk_id', produk['produk_id']);
+      }
+
+      // Notifikasi berhasil
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pembelian berhasil disimpan.'), backgroundColor: Colors.green),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      // Notifikasi error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menyimpan pembelian: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Checkout',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Pelanggan: ${pelangganId ?? "Non-member"}', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 16),
+            const Text('Produk yang dibeli:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Expanded(
               child: ListView.builder(
                 itemCount: produkTerpilih.length,
@@ -201,28 +276,18 @@ FutureBuilder<List<Map<String, dynamic>>>(
                   return ListTile(
                     title: Text(produk['nama_produk']),
                     subtitle: Text('Jumlah: ${produk['jumlah_produk']}, Subtotal: Rp ${produk['subtotal']}'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        setState(() {
-                          totalHarga -= produk['subtotal'];
-                          produkTerpilih.removeAt(index);
-                        });
-                      },
-                    ),
                   );
                 },
               ),
             ),
-
-            // Total harga
-            Text('Total Harga: Rp $totalHarga', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-
-            // Tombol simpan
+            Text('Total Harga: Rp $totalHarga', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _savePenjualan,
-              child: const Text('Simpan Penjualan'),
+              onPressed: () {
+                _konfirmasiPembelian(context);
+              },
+              child: const Text('Konfirmasi Pembelian'),
             ),
           ],
         ),

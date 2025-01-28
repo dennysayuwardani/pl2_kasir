@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Dashboard extends StatefulWidget {
@@ -28,9 +27,11 @@ class _DashboardState extends State<Dashboard> {
           .from('produk')
           .select('*')
           .order('produk_id', ascending: true);
-      setState(() {
+      if (mounted){
+        setState(() {
         produk = List<Map<String, dynamic>>.from(response);
       });
+      }
     } catch (e) {
       _showMessage('Terjadi kesalahan: $e', isError: true);
     }
@@ -77,9 +78,15 @@ class _DashboardState extends State<Dashboard> {
   Future<void> _deleteProdukFromSupabase(int id) async {
     try {
       await Supabase.instance.client
+          .from('detail_penjualan')
+          .delete()
+          .eq('produk_id', id);
+
+      await Supabase.instance.client
           .from('produk')
           .delete()
           .eq('produk_id', id);
+
       _showMessage('Produk berhasil dihapus');
       _fetchProdukFromSupabase();
     } catch (e) {
@@ -93,6 +100,38 @@ class _DashboardState extends State<Dashboard> {
         content: Text(message),
         backgroundColor: isError ? Colors.red : Colors.green,
       ),
+    );
+  }
+
+  void _showDeleteConfirmation(int id) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hapus Produk'),
+          content: const Text('Apakah Anda yakin ingin menghapus produk ini?'),
+          actions: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _deleteProdukFromSupabase(id);
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Hapus'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -115,7 +154,7 @@ class _DashboardState extends State<Dashboard> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(title, style: GoogleFonts.poppins(fontSize: 20)),
+          title: Text(title),
           content: Form(
             key: _formKey,
             child: Column(
@@ -155,8 +194,7 @@ class _DashboardState extends State<Dashboard> {
           ),
           actions: [
             Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween, // Memisahkan kedua tombol
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -165,8 +203,7 @@ class _DashboardState extends State<Dashboard> {
                 ),
                 ElevatedButton(
                   onPressed: onConfirm,
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   child: Text(produk == null ? 'Tambah' : 'Simpan'),
                 ),
               ],
@@ -189,7 +226,6 @@ class _DashboardState extends State<Dashboard> {
       decoration: InputDecoration(
         labelText: label,
         prefixText: prefixText,
-        labelStyle: GoogleFonts.poppins(fontSize: 15),
       ),
       keyboardType: keyboardType,
       validator: validator,
@@ -200,14 +236,7 @@ class _DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Kasir',
-          style: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
+        title: const Text('Kasir', style: TextStyle(color: Colors.blue, fontSize: 20, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -251,19 +280,10 @@ class _DashboardState extends State<Dashboard> {
                     children: [
                       Text(
                         item['nama_produk'] ?? 'Unknown',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Text(
-                        'Harga: Rp ${item['harga']}',
-                        style: GoogleFonts.poppins(fontSize: 14),
-                      ),
-                      Text(
-                        'Stok: ${item['stok']}',
-                        style: GoogleFonts.poppins(fontSize: 14),
-                      ),
+                      Text('Harga: Rp ${item['harga']}'),
+                      Text('Stok: ${item['stok']}'),
                     ],
                   ),
                 ),
@@ -284,7 +304,7 @@ class _DashboardState extends State<Dashboard> {
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () =>
-                          _deleteProdukFromSupabase(item['produk_id']),
+                          _showDeleteConfirmation(item['produk_id']),
                     ),
                   ],
                 ),

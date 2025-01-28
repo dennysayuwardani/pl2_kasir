@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pl2_kasir/main.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dashboard.dart';
-
+import 'package:shared_preferences/shared_preferences.dart'; // Tambahkan import untuk SharedPreferences
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
 
@@ -19,41 +17,51 @@ class _LoginPageState extends State<LoginPage> {
 
   final SupabaseClient supabase = Supabase.instance.client;
 
-  Future<void> _login() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final String username = _usernameController.text.trim();
-    final String password = _passwordController.text.trim();
-
-    try {
-      // Query ke Supabase untuk validasi user
-      final response = await supabase
-          .from('user')
-          .select()
-          .eq('username', username)
-          .eq('password', password)
-          .maybeSingle();
-
-      if (response != null) {
-        // Login berhasil
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainPage()),
-        );
-      } else {
-        // Login gagal
-        _showSnackBar('Invalid username or password');
-      }
-    } catch (e) {
-      _showSnackBar('An error occurred: $e');
-    } finally {
+Future<void> _login() async {
+  if (mounted) {
+    if (mounted) {
       setState(() {
-        _isLoading = false;
-      });
+    _isLoading = true;
+  });
     }
   }
+
+  final String username = _usernameController.text.trim();
+  final String password = _passwordController.text.trim();
+
+  try {
+    // Query ke Supabase untuk validasi user
+    final response = await supabase
+        .from('user')
+        .select()
+        .eq('username', username)
+        .eq('password', password)
+        .maybeSingle();
+
+    if (response != null) {
+      // Simpan role ke SharedPreferences
+      final role = response['role'];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('username', response['username']); // Simpan username
+      await prefs.setString('role', role); // Simpan role
+
+      // Login berhasil, langsung arahkan ke halaman utama
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainPage()),
+      );
+    } else {
+      // Login gagal
+      _showSnackBar('Invalid username or password');
+    }
+  } catch (e) {
+    _showSnackBar('An error occurred: $e');
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -68,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -98,11 +106,12 @@ class _LoginPageState extends State<LoginPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 70, vertical: 15),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 70, vertical: 15),
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : Text("Login", style: GoogleFonts.poppins(fontSize: 20)),
+                    : const Text("Login", style: TextStyle(fontSize: 20)),
               ),
             ],
           ),
@@ -112,7 +121,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   TextStyle _textStyle(double fontSize, FontWeight fontWeight) {
-    return GoogleFonts.poppins(fontSize: fontSize, fontWeight: fontWeight, color: Colors.blue);
+    return TextStyle(
+        fontSize: fontSize, fontWeight: fontWeight, color: Colors.blue);
   }
 
   Widget _buildTextField(String label, TextEditingController controller) {
@@ -123,7 +133,8 @@ class _LoginPageState extends State<LoginPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+            border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
           ),
           child: Row(
             children: [
@@ -134,7 +145,7 @@ class _LoginPageState extends State<LoginPage> {
                   controller: controller,
                   decoration: InputDecoration(
                     hintText: label,
-                    hintStyle: GoogleFonts.poppins(fontSize: 14),
+                    hintStyle: const TextStyle(fontSize: 14),
                     border: InputBorder.none,
                   ),
                 ),
@@ -155,7 +166,8 @@ class _LoginPageState extends State<LoginPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+            border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
           ),
           child: Row(
             children: [
@@ -165,9 +177,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: TextField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: "Password",
-                    hintStyle: GoogleFonts.poppins(fontSize: 14),
+                    hintStyle: TextStyle(fontSize: 14),
                     border: InputBorder.none,
                   ),
                 ),
@@ -177,7 +189,8 @@ class _LoginPageState extends State<LoginPage> {
                   _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                   color: Colors.grey,
                 ),
-                onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                onPressed: () =>
+                    setState(() => _isPasswordVisible = !_isPasswordVisible),
               ),
             ],
           ),
