@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -13,12 +14,17 @@ class _DashboardState extends State<Dashboard> {
   final TextEditingController _namaProdukController = TextEditingController();
   final TextEditingController _hargaController = TextEditingController();
   final TextEditingController _stokController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> produk = [];
+  List<Map<String, dynamic>> filteredProduk =
+      []; // List produk yang sudah difilter
 
   @override
   void initState() {
     super.initState();
     _fetchProdukFromSupabase();
+    _searchController
+        .addListener(_filterProduk); // Tambahkan listener untuk pencarian
   }
 
   Future<void> _fetchProdukFromSupabase() async {
@@ -27,14 +33,27 @@ class _DashboardState extends State<Dashboard> {
           .from('produk')
           .select('*')
           .order('produk_id', ascending: true);
-      if (mounted){
+      if (mounted) {
         setState(() {
-        produk = List<Map<String, dynamic>>.from(response);
-      });
+          produk = List<Map<String, dynamic>>.from(response);
+          filteredProduk =
+              List.from(produk); // Mulai dengan menampilkan semua produk
+        });
       }
     } catch (e) {
       _showMessage('Terjadi kesalahan: $e', isError: true);
     }
+  }
+
+  void _filterProduk() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      filteredProduk = produk
+          .where((product) => product['nama_produk']
+              .toLowerCase()
+              .contains(query)) // Filter produk berdasarkan nama
+          .toList();
+    });
   }
 
   Future<void> _addProdukToSupabase() async {
@@ -124,7 +143,8 @@ class _DashboardState extends State<Dashboard> {
                     Navigator.of(context).pop();
                     _deleteProdukFromSupabase(id);
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   child: const Text('Hapus'),
                 ),
               ],
@@ -154,7 +174,8 @@ class _DashboardState extends State<Dashboard> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(title),
+          title: Text(title,
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
           content: Form(
             key: _formKey,
             child: Column(
@@ -199,12 +220,14 @@ class _DashboardState extends State<Dashboard> {
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Batal'),
+                  child: Text('Batal', style: GoogleFonts.poppins()),
                 ),
                 ElevatedButton(
                   onPressed: onConfirm,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: Text(produk == null ? 'Tambah' : 'Simpan'),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: Text(produk == null ? 'Tambah' : 'Simpan',
+                      style: GoogleFonts.poppins()),
                 ),
               ],
             ),
@@ -225,6 +248,7 @@ class _DashboardState extends State<Dashboard> {
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: GoogleFonts.poppins(),
         prefixText: prefixText,
       ),
       keyboardType: keyboardType,
@@ -235,84 +259,105 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kasir', style: TextStyle(color: Colors.blue, fontSize: 20, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'fab1',
-        onPressed: () => _showProdukDialog(
-          title: 'Tambah Produk',
-          onConfirm: () {
-            if (_formKey.currentState!.validate()) {
-              _addProdukToSupabase();
-            }
-          },
+        appBar: AppBar(
+          title: Text(
+            'Kasir',
+            style: GoogleFonts.poppins(
+                color: Colors.blue, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
         ),
-        child: const Icon(Icons.add),
-        backgroundColor: Colors.blue,
-      ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(10),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 1,
-          crossAxisSpacing: 15,
-          mainAxisSpacing: 10,
-          childAspectRatio: 4,
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'fab1',
+          onPressed: () => _showProdukDialog(
+            title: 'Tambah Produk',
+            onConfirm: () {
+              if (_formKey.currentState!.validate()) {
+                _addProdukToSupabase();
+              }
+            },
+          ),
+          child: const Icon(Icons.add),
+          backgroundColor: Colors.blue,
         ),
-        itemCount: produk.length,
-        itemBuilder: (context, index) {
-          final item = produk[index];
-          return Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey),
+        body: Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Cari Produk',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.search),
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
+          ),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(10),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 1,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 10,
+                childAspectRatio: 4,
+              ),
+              itemCount: filteredProduk.length,
+              itemBuilder: (context, index) {
+                final item = filteredProduk[index];
+                return Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        item['nama_produk'] ?? 'Unknown',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(item['nama_produk'] ?? 'Unknown',
+                                style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.bold)),
+                            Text('Harga: Rp ${item['harga']}',
+                                style: GoogleFonts.poppins()),
+                            Text('Stok: ${item['stok']}',
+                                style: GoogleFonts.poppins()),
+                          ],
+                        ),
                       ),
-                      Text('Harga: Rp ${item['harga']}'),
-                      Text('Stok: ${item['stok']}'),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => _showProdukDialog(
+                              title: 'Edit Produk',
+                              produk: item,
+                              onConfirm: () {
+                                if (_formKey.currentState!.validate()) {
+                                  _updateProdukToSupabase(item['produk_id']);
+                                }
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () =>
+                                _showDeleteConfirmation(item['produk_id']),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _showProdukDialog(
-                        title: 'Edit Produk',
-                        produk: item,
-                        onConfirm: () {
-                          if (_formKey.currentState!.validate()) {
-                            _updateProdukToSupabase(item['produk_id']);
-                          }
-                        },
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () =>
-                          _showDeleteConfirmation(item['produk_id']),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
+          )
+        ]));
   }
 }

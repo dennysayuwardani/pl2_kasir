@@ -22,6 +22,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // Menyimpan error message untuk validasi
   String _usernameError = '';
   String _passwordError = '';
+  String _roleSelected = 'petugas'; // Role default saat registrasi
 
   @override
   void initState() {
@@ -74,7 +75,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _registerPetugas() async {
+  Future<void> _registerUser() async {
     final username = _usernameController.text;
     final password = _passwordController.text;
 
@@ -101,17 +102,33 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
-    try {
-      final response = await Supabase.instance.client.from('user').insert([
+try {
+      // Mengecek apakah username sudah ada
+      final response = await Supabase.instance.client
+          .from('user')
+          .select()
+          .eq('username', username)
+          .single();
+
+      if (response != null) {
+        // Jika ada username yang sama
+        setState(() {
+          _usernameError = 'Username sudah digunakan';
+        });
+        return;
+      }
+
+      // Melakukan registrasi akun baru jika username belum ada
+      final newUser = await Supabase.instance.client.from('user').insert([
         {
           'username': username,
           'password': password,
-          'role': 'petugas', // Set role ke petugas
-        }]
-      ).select().single();
+          'role': _role,  // Role yang dipilih
+        }
+      ]).select().single();
 
-      if (response != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Akun petugas berhasil dibuat'), backgroundColor: Colors.green));
+      if (newUser != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Akun berhasil dibuat'), backgroundColor: Colors.green));
         Navigator.of(context).pop(); // Menutup form setelah berhasil
       } else {
         setState(() {
@@ -123,6 +140,79 @@ class _ProfilePageState extends State<ProfilePage> {
         _usernameError = 'Terjadi kesalahan: $e';
       });
     }
+  }
+  // Menampilkan dialog untuk menambah atau mengedit akun admin dan petugas
+  void _showUserDialog({Map<String, dynamic>? userData}) {
+    _usernameController.text = userData?['username'] ?? '';
+    _passwordController.text = '';
+    _roleSelected = userData?['role'] ?? 'petugas';
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(userData == null ? 'Tambah Pengguna' : 'Edit Pengguna'),
+          content: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildInputField(controller: _usernameController, label: 'Username'),
+                _buildInputField(controller: _passwordController, label: 'Password', obscureText: true),
+                DropdownButtonFormField<String>(
+                  value: _roleSelected,
+                  onChanged: (value) {
+                    setState(() {
+                      _roleSelected = value!;
+                    });
+                  },
+                  items: ['admin', 'petugas'].map((role) {
+                    return DropdownMenuItem<String>(
+                      value: role,
+                      child: Text(role),
+                    );
+                  }).toList(),
+                  decoration: InputDecoration(labelText: 'Role'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    child: const Text('Batal'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        _registerUser();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: const Text('Simpan'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInputField({required TextEditingController controller, required String label, bool obscureText = false}) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(labelText: label),
+      obscureText: obscureText,
+      validator: (value) => value!.isEmpty ? '$label tidak boleh kosong' : null,
+    );
   }
 
   @override
@@ -174,76 +264,8 @@ class _ProfilePageState extends State<ProfilePage> {
             if (_role == 'admin') ...[
               GestureDetector(
                 onTap: () {
-                  // Menampilkan form untuk registrasi petugas baru
-                  showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        title: Text('Registrasi Akun Petugas'),
-                        content: Form(
-                          key: _formKey,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              TextFormField(
-                                controller: _usernameController,
-                                decoration: InputDecoration(
-                                  labelText: 'Username',
-                                  errorText: _usernameError.isNotEmpty ? _usernameError : null,
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Username tidak boleh kosong';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              TextFormField(
-                                controller: _passwordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Password',
-                                  errorText: _passwordError.isNotEmpty ? _passwordError : null,
-                                ),
-                                obscureText: true,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Password tidak boleh kosong';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        actions: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Tombol Batal
-                                ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                  child: const Text('Batal'),
-                                ),
-                                // Tombol Daftar
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (_formKey.currentState!.validate()) {
-                                      _registerPetugas();
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                  child: const Text('Daftar'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
+                  // Menampilkan form untuk registrasi akun baru
+                  _showUserDialog();
                 },
                 child: const Row(
                   children: [

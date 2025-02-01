@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pl2_kasir/riwayat.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PenjualanScreen extends StatefulWidget {
   const PenjualanScreen({Key? key}) : super(key: key);
@@ -27,23 +29,33 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
     final response = await supabase.from('pelanggan').select();
     if (mounted) {
       setState(() {
-      pelangganList = List<Map<String, dynamic>>.from(response);
-    });
+        pelangganList = List<Map<String, dynamic>>.from(response);
+      });
     }
   }
 
   Future<void> _fetchProduk() async {
+    final supabase = Supabase.instance.client;
     final response = await supabase.from('produk').select();
     if (mounted) {
       setState(() {
-      produkList = List<Map<String, dynamic>>.from(response);
-    });
+        produkList = response
+            .map((p) => {
+                  'produk_id': p['produk_id'],
+                  'nama_produk': p['nama_produk'],
+                  'harga': p['harga'],
+                  'stok': p['stok'], // Stok produk diperbarui
+                })
+            .toList();
+      });
     }
   }
 
   void _addProdukToCart(Map<String, dynamic> produk) {
     final existingProduk = produkTerpilih.firstWhere(
-        (item) => item['produk_id'] == produk['produk_id'], orElse: () => {});
+      (item) => item['produk_id'] == produk['produk_id'],
+      orElse: () => {},
+    );
     setState(() {
       if (existingProduk.isNotEmpty) {
         existingProduk['jumlah_produk']++;
@@ -56,23 +68,34 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
           'subtotal': produk['harga'],
         });
       }
-      totalHarga += produk['harga'];
+      totalHarga =
+          produkTerpilih.fold(0, (sum, item) => sum + item['subtotal']);
     });
   }
 
   void _removeProdukFromCart(Map<String, dynamic> produk) {
+    // Cari produk yang sudah ada di dalam cart
     final existingProduk = produkTerpilih.firstWhere(
-        (item) => item['produk_id'] == produk['produk_id'], orElse: () => {});
+      (item) => item['produk_id'] == produk['produk_id'],
+      orElse: () => {},
+    );
+
+    // Cek jika produk ditemukan dan tidak kosong
     if (existingProduk.isNotEmpty) {
-      if (existingProduk['jumlah_produk'] > 1) {
-        existingProduk['jumlah_produk']--;
-        existingProduk['subtotal'] =
-            existingProduk['jumlah_produk'] * produk['harga'];
-        totalHarga -= produk['harga'];
-      } else {
-        produkTerpilih.remove(existingProduk);
-        totalHarga -= produk['harga'];
-      }
+      setState(() {
+        // Jika jumlah produk lebih dari 1, kurangi jumlahnya
+        if (existingProduk['jumlah_produk'] > 1) {
+          existingProduk['jumlah_produk']--;
+          existingProduk['subtotal'] =
+              existingProduk['jumlah_produk'] * produk['harga'];
+        } else {
+          // Jika jumlah produk 1, hapus dari cart
+          produkTerpilih.remove(existingProduk);
+        }
+        // Update total harga setelah perubahan jumlah atau penghapusan
+        totalHarga =
+            produkTerpilih.fold(0, (sum, item) => sum + item['subtotal']);
+      });
     }
   }
 
@@ -80,7 +103,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CheckoutScreen(
+        builder: (context) => CheckoutPage(
           pelangganId: selectedPelangganId,
           produkTerpilih: produkTerpilih,
           totalHarga: totalHarga,
@@ -100,10 +123,10 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Penjualan',
-          style: TextStyle(
-            fontSize: 20,
+          style: GoogleFonts.poppins(
+            fontSize: 24,
             fontWeight: FontWeight.bold,
             color: Colors.blue,
           ),
@@ -116,7 +139,10 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
         child: Column(
           children: [
             DropdownButtonFormField<int?>(
-              hint: const Text('Pilih Pelanggan (Opsional)'),
+              hint: Text(
+                'Pilih Pelanggan (Opsional)',
+                style: GoogleFonts.poppins(),
+              ),
               value: selectedPelangganId,
               onChanged: (value) {
                 setState(() {
@@ -126,22 +152,63 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
               items: pelangganList.map((pelanggan) {
                 return DropdownMenuItem<int?>(
                   value: pelanggan['pelanggan_id'],
-                  child: Text(pelanggan['nama_pelanggan']),
+                  child: Text(
+                    pelanggan['nama_pelanggan'],
+                    style: GoogleFonts.poppins(),
+                  ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              hint: const Text('Pilih Produk'),
+              hint: Text(
+                'Pilih Produk',
+                style: GoogleFonts.poppins(),
+              ),
               onChanged: (value) {
                 final produk =
                     produkList.firstWhere((p) => p['produk_id'] == value);
-                _addProdukToCart(produk);
+
+                if (produk['stok'] > 0) {
+                  // Cek apakah stok masih tersedia
+                  _addProdukToCart(produk);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Stok ${produk['nama_produk']} habis!'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
               items: produkList.map((produk) {
                 return DropdownMenuItem<int>(
                   value: produk['produk_id'],
-                  child: Text('${produk['nama_produk']} - Rp ${produk['harga']}'),
+                  enabled: produk['stok'] > 0, // Disable produk jika stoknya 0
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment
+                        .spaceBetween, // Pisahkan teks kiri & kanan
+                    children: [
+                      Text(
+                        '${produk['nama_produk']} - Rp ${produk['harga']}',
+                        style: GoogleFonts.poppins(
+                          color: produk['stok'] > 0
+                              ? Colors.black
+                              : Colors.grey, // Warna abu jika stok habis
+                        ),
+                      ),
+                      Text(
+                        'Stok: ${produk['stok']}',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          color: produk['stok'] > 0
+                              ? Colors.green
+                              : Colors
+                                  .red, // Hijau jika ada stok, merah jika habis
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }).toList(),
             ),
@@ -152,8 +219,14 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
                 itemBuilder: (context, index) {
                   final produk = produkTerpilih[index];
                   return ListTile(
-                    title: Text(produk['nama_produk']),
-                    subtitle: Text('Subtotal: Rp ${produk['subtotal']}'),
+                    title: Text(
+                      produk['nama_produk'],
+                      style: GoogleFonts.poppins(),
+                    ),
+                    subtitle: Text(
+                      'Subtotal: Rp ${produk['subtotal']}',
+                      style: GoogleFonts.poppins(),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -161,7 +234,10 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
                           icon: const Icon(Icons.remove, color: Colors.red),
                           onPressed: () => _removeProdukFromCart(produk),
                         ),
-                        Text('${produk['jumlah_produk']}'),
+                        Text(
+                          '${produk['jumlah_produk']}',
+                          style: GoogleFonts.poppins(),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.add, color: Colors.green),
                           onPressed: () => _addProdukToCart(produk),
@@ -172,12 +248,20 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
                 },
               ),
             ),
-            Text('Total Harga: Rp $totalHarga',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'Total Harga: Rp $totalHarga',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: produkTerpilih.isEmpty ? null : _goToCheckout,
-              child: const Text('Checkout'),
+              child: Text(
+                'Checkout',
+                style: GoogleFonts.poppins(),
+              ),
             ),
           ],
         ),
@@ -186,37 +270,78 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
   }
 }
 
-class CheckoutScreen extends StatelessWidget {
-  final int? pelangganId;
+class CheckoutPage extends StatefulWidget {
+  final int? pelangganId; // Bisa null (jika Non-Member)
   final List<Map<String, dynamic>> produkTerpilih;
   final double totalHarga;
 
-  const CheckoutScreen({
+  const CheckoutPage({
     Key? key,
     required this.pelangganId,
     required this.produkTerpilih,
     required this.totalHarga,
   }) : super(key: key);
 
-  Future<void> _konfirmasiPembelian(BuildContext context) async {
+  @override
+  _CheckoutPageState createState() => _CheckoutPageState();
+}
+
+class _CheckoutPageState extends State<CheckoutPage> {
+  Map<String, dynamic>? pelangganData; // Data pelanggan dari database
+  bool isLoading = true; // Untuk loading data pelanggan
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPelangganData(); // Ambil data pelanggan saat halaman dibuka
+  }
+
+  Future<void> _fetchPelangganData() async {
+    if (widget.pelangganId != null) {
+      try {
+        final supabase = Supabase.instance.client;
+        final response = await supabase
+            .from('pelanggan')
+            .select()
+            .eq('pelanggan_id', widget.pelangganId!)
+            .single();
+
+        setState(() {
+          pelangganData = response;
+          isLoading = false;
+        });
+      } catch (e) {
+        print("Error mengambil data pelanggan: $e");
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _konfirmasiPembelian() async {
     try {
       final supabase = Supabase.instance.client;
 
-      // Insert ke tabel penjualan
+      // Simpan data ke tabel penjualan
       final penjualanResponse = await supabase
           .from('penjualan')
           .insert({
             'tanggal_penjualan': DateTime.now().toIso8601String(),
-            'total_harga': totalHarga,
-            'pelanggan_id': pelangganId,
+            'total_harga': widget.totalHarga,
+            'pelanggan_id': widget.pelangganId,
           })
           .select()
           .single();
 
       final penjualanId = penjualanResponse['penjualan_id'];
 
-      // Insert ke tabel detail_penjualan
-      for (var produk in produkTerpilih) {
+      // Simpan ke detail_penjualan
+      for (var produk in widget.produkTerpilih) {
         await supabase.from('detail_penjualan').insert({
           'penjualan_id': penjualanId,
           'produk_id': produk['produk_id'],
@@ -231,16 +356,20 @@ class CheckoutScreen extends StatelessWidget {
             .update({'stok': newStok}).eq('produk_id', produk['produk_id']);
       }
 
-      // Notifikasi berhasil
+      // Tampilkan notifikasi sukses
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pembelian berhasil disimpan.'), backgroundColor: Colors.green),
+        SnackBar(
+            content: Text('Pembelian berhasil disimpan.'),
+            backgroundColor: Colors.green),
       );
 
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Kembali ke halaman sebelumnya
+      Navigator.pop(context);
     } catch (e) {
-      // Notifikasi error
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan pembelian: $e'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('Gagal menyimpan pembelian: $e'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -249,9 +378,12 @@ class CheckoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Checkout',
-          style: TextStyle(
+        iconTheme: const IconThemeData(
+          color: Colors.blue,
+        ),
+        title: Text(
+          'Struk Pembelian',
+          style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: Colors.blue,
@@ -262,35 +394,78 @@ class CheckoutScreen extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Pelanggan: ${pelangganId ?? "Non-member"}', style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 16),
-            const Text('Produk yang dibeli:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Expanded(
-              child: ListView.builder(
-                itemCount: produkTerpilih.length,
-                itemBuilder: (context, index) {
-                  final produk = produkTerpilih[index];
-                  return ListTile(
-                    title: Text(produk['nama_produk']),
-                    subtitle: Text('Jumlah: ${produk['jumlah_produk']}, Subtotal: Rp ${produk['subtotal']}'),
-                  );
-                },
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Informasi Pelanggan
+                  Text(
+                    widget.pelangganId != null
+                        ? 'Pelanggan: ${pelangganData?['nama_pelanggan'] ?? "-"}'
+                        : 'Pelanggan: Non-member',
+                    style: GoogleFonts.poppins(fontSize: 18),
+                  ),
+                  if (widget.pelangganId != null) ...[
+                    Text(
+                      'Alamat: ${pelangganData?['alamat'] ?? "-"}',
+                      style: GoogleFonts.poppins(fontSize: 16),
+                    ),
+                    Text(
+                      'No. Telp: ${pelangganData?['nomor_telepon'] ?? "-"}',
+                      style: GoogleFonts.poppins(fontSize: 16),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+
+                  // Daftar Produk yang Dibeli
+                  Text(
+                    'Produk yang dibeli:',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: widget.produkTerpilih.length,
+                      itemBuilder: (context, index) {
+                        final produk = widget.produkTerpilih[index];
+                        return ListTile(
+                          title: Text(
+                            produk['nama_produk'],
+                            style: GoogleFonts.poppins(),
+                          ),
+                          subtitle: Text(
+                            'Jumlah: ${produk['jumlah_produk']}, Subtotal: Rp ${produk['subtotal']}',
+                            style: GoogleFonts.poppins(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Total Harga
+                  Text(
+                    'Total Harga: Rp ${widget.totalHarga}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Tombol Konfirmasi
+                  ElevatedButton(
+                    onPressed: _konfirmasiPembelian,
+                    child: Text(
+                      'Konfirmasi Pembelian',
+                      style: GoogleFonts.poppins(),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            Text('Total Harga: Rp $totalHarga', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                _konfirmasiPembelian(context);
-              },
-              child: const Text('Konfirmasi Pembelian'),
-            ),
-          ],
-        ),
       ),
     );
   }

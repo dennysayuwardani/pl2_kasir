@@ -7,6 +7,7 @@ import 'package:pl2_kasir/login_page.dart';
 import 'package:pl2_kasir/pelanggan.dart';
 import 'package:pl2_kasir/riwayat.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   await Supabase.initialize(
@@ -25,22 +26,21 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Kasir',
       theme: ThemeData(
+        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme), // Menetapkan font secara global
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: false,
       ),
       debugShowCheckedModeBanner: false,
       home: FutureBuilder<String?>(
-        future: _getRole(), // Ambil role dari SharedPreferences
+        future: _getRole(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator()); // Loading state
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasData && snapshot.data != null) {
-            // Jika role sudah tersimpan, tampilkan MainPage
             return const MainPage();
           } else {
-            // Jika belum login, tampilkan halaman login
             return const LoginPage();
           }
         },
@@ -48,10 +48,9 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  // Mengambil role yang disimpan di SharedPreferences
   Future<String?> _getRole() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('role'); // Ambil role yang disimpan
+    return prefs.getString('role');
   }
 }
 
@@ -63,16 +62,15 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  int _currentIndex = 0; // Indeks awal untuk navigasi bawah
-  String? role; // Menyimpan role yang didapat dari SharedPreferences
+  int _currentIndex = 0;
+  String? role;
 
   @override
   void initState() {
     super.initState();
-    _loadRole(); // Load role saat MainPage dibuka
+    _loadRole();
   }
 
-  // Load role dari SharedPreferences
   Future<void> _loadRole() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -81,17 +79,16 @@ class _MainPageState extends State<MainPage> {
   }
 
   final List<Widget> _adminPages = [
-    const Dashboard(), // Halaman Dashboard
-    const PenjualanScreen(), // Halaman Transaksi
-    const PelangganScreen(), // Halaman Pelanggan
-    const RiwayatPembelianPage(), // Halaman Riwayat
-    const ProfilePage(), // Halaman Profil
+    const Dashboard(),
+    const PelangganScreen(),
+    const ProfilePage(),
   ];
 
   final List<Widget> _petugasPages = [
-    const PenjualanScreen(), // Halaman Transaksi
-    const RiwayatPembelianPage(), // Halaman Riwayat
-    const ProfilePage(), // Halaman Profil
+    const Dashboard(),
+    const PenjualanScreen(),
+    const RiwayatPembelianPage(),
+    const ProfilePage(),
   ];
 
   void _onTap(int index) {
@@ -106,7 +103,7 @@ class _MainPageState extends State<MainPage> {
 
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex, // Tampilkan halaman berdasarkan indeks
+        index: _currentIndex,
         children: pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -115,7 +112,7 @@ class _MainPageState extends State<MainPage> {
         unselectedItemColor: Colors.grey,
         onTap: (index) {
           setState(() {
-            _currentIndex = index; // Ubah indeks saat tombol diklik
+            _currentIndex = index;
           });
         },
         items: role == 'admin'
@@ -125,16 +122,8 @@ class _MainPageState extends State<MainPage> {
                   label: 'Produk',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.receipt_long),
-                  label: 'Penjualan',
-                ),
-                BottomNavigationBarItem(
                   icon: Icon(Icons.add_reaction_outlined),
                   label: 'Pelanggan',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.history_outlined),
-                  label: 'Riwayat',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_2_outlined),
@@ -142,6 +131,10 @@ class _MainPageState extends State<MainPage> {
                 ),
               ]
             : const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  label: 'Produk',
+                ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.receipt_long),
                   label: 'Penjualan',
@@ -155,13 +148,8 @@ class _MainPageState extends State<MainPage> {
                   label: 'Profil',
                 ),
               ],
-        selectedLabelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 12,
-        ),
+        selectedLabelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold),
+        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
       ),
     );
   }
