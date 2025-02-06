@@ -25,7 +25,7 @@ class _PelangganScreenState extends State<PelangganScreen> {
 
   Future<void> _fetchPelanggan() async {
     try {
-      final response = await supabase.from('pelanggan').select();
+      final response = await supabase.from('pelanggan').select().order('nama_pelanggan', ascending: true);
       if (mounted) {
         setState(() {
         pelanggan = List<Map<String, dynamic>>.from(response);
@@ -211,14 +211,6 @@ class _PelangganScreenState extends State<PelangganScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Pelanggan',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : pelanggan.isEmpty

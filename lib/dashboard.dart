@@ -32,7 +32,7 @@ class _DashboardState extends State<Dashboard> {
       final response = await Supabase.instance.client
           .from('produk')
           .select('*')
-          .order('produk_id', ascending: true);
+          .order('nama_produk', ascending: true);
       if (mounted) {
         setState(() {
           produk = List<Map<String, dynamic>>.from(response);
@@ -258,17 +258,8 @@ class _DashboardState extends State<Dashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          title: Text(
-            'Kasir',
-            style: GoogleFonts.poppins(
-                color: Colors.blue, fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-        ),
-        floatingActionButton: FloatingActionButton(
+    return Scaffold(        
+      floatingActionButton: FloatingActionButton(
           heroTag: 'fab1',
           onPressed: () => _showProdukDialog(
             title: 'Tambah Produk',

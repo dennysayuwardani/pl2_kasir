@@ -121,19 +121,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Penjualan',
-          style: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+    return Scaffold(      
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -200,7 +188,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
                       Text(
                         'Stok: ${produk['stok']}',
                         style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
+                          
                           color: produk['stok'] > 0
                               ? Colors.green
                               : Colors

@@ -93,20 +93,6 @@ class _RiwayatPembelianPageState extends State<RiwayatPembelianPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(
-          'Riwayat Pembelian',
-          style: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
       body: RefreshIndicator(
         onRefresh: refreshRiwayat, // Menyegarkan data dengan geser ke bawah
         child: riwayatPenjualan.isEmpty
@@ -228,28 +214,40 @@ class _RiwayatPembelianPageState extends State<RiwayatPembelianPage> {
                               // Konfirmasi sebelum menghapus
                               showDialog(
                                 context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Hapus Riwayat Pembelian'),
-                                  content: const Text(
-                                      'Apakah Anda yakin ingin menghapus riwayat pembelian ini?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context); // Tutup dialog
-                                      },
-                                      child: const Text('Batal'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        // Menghapus transaksi
-                                        deleteRiwayat(
-                                            penjualan['penjualan_id']);
-                                        Navigator.pop(context); // Tutup dialog
-                                      },
-                                      child: const Text('Hapus'),
-                                    ),
-                                  ],
-                                ),
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title:
+                                        const Text('Hapus Riwayat Pembelian'),
+                                    content: const Text(
+                                        'Apakah Anda yakin ingin menghapus riwayat pembelian ini?'),
+                                    actions: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(
+                                                context), // Tutup dialog
+                                            style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red),
+                                            child: const Text('Batal'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              deleteRiwayat(penjualan[
+                                                  'penjualan_id']); // Hapus transaksi
+                                              Navigator.pop(
+                                                  context); // Tutup dialog
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.green),
+                                            child: const Text('Hapus'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
                               );
                             },
                             icon: const Icon(Icons.delete),

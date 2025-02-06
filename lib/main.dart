@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pl2_kasir/dashboard.dart';
-import 'package:pl2_kasir/profile.dart';
 import 'package:pl2_kasir/penjualan.dart';
+import 'package:pl2_kasir/petugas.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pl2_kasir/login_page.dart';
 import 'package:pl2_kasir/pelanggan.dart';
@@ -81,14 +81,14 @@ class _MainPageState extends State<MainPage> {
   final List<Widget> _adminPages = [
     const Dashboard(),
     const PelangganScreen(),
-    const ProfilePage(),
+    const PetugasPage(),
   ];
 
   final List<Widget> _petugasPages = [
     const Dashboard(),
     const PenjualanScreen(),
     const RiwayatPembelianPage(),
-    const ProfilePage(),
+    
   ];
 
   void _onTap(int index) {
@@ -97,11 +97,38 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  Future<void> _logout() async {
+    await Supabase.instance.client.auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    // Pindahkan user ke halaman login setelah logout
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const LoginPage(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = role == 'admin' ? _adminPages : _petugasPages;
+    final titles = role == 'admin'
+        ? ['Produk - Kasir Admin', 'Pelanggan', 'Regristasi Akun Petugas']
+        : ['Produk - Kasir Petugas', 'Penjualan', 'Riwayat Pembelian'];
 
     return Scaffold(
+      appBar: AppBar(
+        title: Text(titles[_currentIndex], style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)), // Menampilkan judul halaman sesuai index
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: _logout,
+          ),
+        ],
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: IndexedStack(
         index: _currentIndex,
         children: pages,
@@ -126,8 +153,8 @@ class _MainPageState extends State<MainPage> {
                   label: 'Pelanggan',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.person_2_outlined),
-                  label: 'Profil',
+                  icon: Icon(Icons.app_registration_rounded),
+                  label: 'Regristasi',
                 ),
               ]
             : const [
@@ -142,12 +169,8 @@ class _MainPageState extends State<MainPage> {
                 BottomNavigationBarItem(
                   icon: Icon(Icons.history_outlined),
                   label: 'Riwayat',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_2_outlined),
-                  label: 'Profil',
-                ),
-              ],
+                ),              
+                ],
         selectedLabelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold),
         unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
       ),
